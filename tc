@@ -2,7 +2,9 @@
 IFS=$'\n'
 
 DOWNLOADS="/home/seeder1/rtorrent/downloads/"
-
+FROM="seeder1@seed.com"
+RECIPIENTS="seed@seed.com"
+    
 CRON=false
 
 FOLDERNAME=
@@ -110,8 +112,6 @@ else
       echo "Bad or no tags"
       /home/seeder1/bin/rtcontrol --from-view main \* -qo name hash=$HASH --custom=1="tc_failed"
       SUBJECT="Transcode Failed - $FOLDERNAME"
-      FROM="seeder1@seed.floydcommons.com"
-      RECIPIENTS="seed@floydcommons.com"
       MAIL="subject:$SUBJECT\nfrom:$FROM\nThe title says it all, but Google wants more, so here is some more text.  This folder could not be transcoded  -Your Friend, Sterns"
       echo -e $MAIL | /usr/sbin/sendmail "$RECIPIENTS"
       exit
@@ -142,8 +142,6 @@ if $GOOD
     cp "/home/seeder1/rtorrent/newtorrent/$NEWTORRENT" /home/seeder1/rtorrent/watch/
     /home/seeder1/bin/rtcontrol --from-view main \* -qo name hash=$HASH --custom=1=""
     SUBJECT="Transcode Completed - $FOLDERNAME"
-    FROM="seeder1@seed.floydcommons.com"
-    RECIPIENTS="seed@floydcommons.com"
     MAIL="subject:$SUBJECT\nfrom:$FROM\nThe title says it all, but Google wants more, so here is some more text."
     echo -e $MAIL | /usr/sbin/sendmail "$RECIPIENTS"
   else
