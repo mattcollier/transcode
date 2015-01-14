@@ -1,151 +1,138 @@
 #!/bin/bash
 IFS=$'\n'
 
-DOWNLOADS="/home/seeder1/rtorrent/downloads/"
-FROM="seeder1@seed.com"
-RECIPIENTS="seed@seed.com"
-    
-CRON=false
+downloads="/home/seeder1/rtorrent/downloads/"
+from="seeder1@seed.com"
+recipients="seed@seed.com"
 
-FOLDERNAME=
+cron=false
 
-if [ $# == 1 ]
-  then
-    if [[ $1 == -* ]]
-       then
-          echo "Folder Name is Required.  Exiting..."
-          exit
-       else
-          FOLDERNAME=$1
+foldername=''
+arg=''
+rtinfo=''
+hash=''
+
+if [[ "$#" == 1 && "$1" == -* ]]; then
+    echo "Folder Name is Required.  Exiting..."
+    exit
+else
+    foldername="$1"
+fi
+
+if [[ "$#" == 2 ]]; then
+    arg="$1"
+    rtinfo="$2"
+    if [[ -n "$rtinfo" ]]; then
+        foldername=$(echo "$rtinfo" | cut -f1)
+        hash=$(echo "$rtinfo" | cut -f2)
+    else
+        echo "No matching torrents.  Exiting..."
+        exit
     fi
 fi
-if [ $# == 2 ]
-   then
-     ARG=$1
-     RTINFO=$2
-     if [ -n "$RTINFO" ]
-       then
-         FOLDERNAME="`echo \"$RTINFO\" | cut -f1`"/
-         HASH="`echo \"$RTINFO\" | cut -f2`"
-       else
-         echo "No matching torrents.  Exiting..."
-         exit
-     fi
-fi
 
-case "$ARG" in
--cron) CRON=true 
-       ;;
+case "$arg" in
+    -cron) cron=true ;;
 esac
 
-if [ -z "$FOLDERNAME" -o ! -d "$DOWNLOADS$FOLDERNAME" ]
-  then
+if [[ -z "$foldername" || ! -d "$downloads$foldername" ]]; then
     echo "No matching torrents.  Exiting..."
     exit
 fi
 
-MUSICFOLDERCOUNT=0
-SUBFOLDERCOUNT=`find "$DOWNLOADS$FOLDERNAME"*/ -type d -print | wc -l`
-if [ $SUBFOLDERCOUNT -gt "0" ]
-  then
-    SUBFOLDERLIST=
-    ALLSUBFOLDERLIST=`find "$DOWNLOADS$FOLDERNAME"*/ -type d -printf "%f\n"`
-    for SUBFOLDERNAME in $ALLSUBFOLDERLIST; do
-      MUSICFILECOUNT=`find "$DOWNLOADS$FOLDERNAME$SUBFOLDERNAME" -name *.flac | wc -l`
-      if [ $MUSICFILECOUNT -gt "0" ]
-        then
-          ((MUSICFOLDERCOUNT++))
-          SUBFOLDERLIST="$SUBFOLDERLIST$SUBFOLDERNAME"$'\n'
-      fi
-    done
-    if [ $MUSICFOLDERCOUNT -gt "0" ]
-      then
-        FIRSTSUBFOLDERNAME=`echo "$SUBFOLDERLIST" | head -1`
-    fi
-  else
-    FIRSTSUBFOLDERNAME=
-fi
-firstflacfile=`ls "$DOWNLOADS$FOLDERNAME$FIRSTSUBFOLDERNAME" | grep -i -E '\.flac$' | head -1`
-secondflacfile=`ls "$DOWNLOADS$FOLDERNAME$FIRSTSUBFOLDERNAME" | grep -i -E '\.flac$' | head -2 | tail -1`
-ARTIST1=`metaflac --show-tag=ARTIST "$DOWNLOADS$FOLDERNAME$FIRSTSUBFOLDERNAME$firstflacfile" | sed -n -e 's/^ARTIST=//pI' | sed -r 's/[:,?<>*|/]+/-/g'`
-ARTIST2=`metaflac --show-tag=ARTIST "$DOWNLOADS$FOLDERNAME$FIRSTSUBFOLDERNAME$secondflacfile" | sed -n -e 's/^ARTIST=//pI' | sed -r 's/[:,?<>*|/]+/-/g'`
-if [ "$ARTIST1" == "$ARTIST2" ]
-  then
-    ARTIST="$ARTIST1"
-  else
-    ARTIST="Various Artists"
-fi
-ALBUM=`metaflac --show-tag=ALBUM "$DOWNLOADS$FOLDERNAME$FIRSTSUBFOLDERNAME$firstflacfile" | sed -n -e 's/^ALBUM=//pI' | sed -r 's/[:,?<>*|/]+/-/g'`
-YEAR=`metaflac --show-tag=DATE "$DOWNLOADS$FOLDERNAME$FIRSTSUBFOLDERNAME$firstflacfile" | sed -n -e 's/^DATE=//pI'`
-NEWFOLDER="$ARTIST - $ALBUM ($YEAR) [V0]/"
-GOOD=false
-if ! $CRON 
+musicfoldercount=0
+subfoldercount=$(find "$downloads$foldername"*/ -type d -print | wc -l)
+if [[ "$subfoldercount" > "0" ]]
 then
-echo $NEWFOLDER
-read -p "Use this folder name? " -n 1 -r
-if ! [[ $REPLY =~ ^[yY]$ ]]
-  then
-    echo
-    read -p "Enter the desired folder name: "
-    NEWFOLDER=$REPLY
-    echo "$NEWFOLDER"
-    read -p "Use this folder name? " -n 1 -r
-    if [[ $REPLY =~ ^[yY]$ ]]
-      then
-        GOOD=true
+    subfolderlist=''
+    allsubfolderlist=$(find "${downloads}${foldername}"*/ -type d -printf "%f\n")
+    for subfoldername in "$allsubfolderlist"; do
+        musicfilecount=$(find "${downloads}${foldername}${subfoldername}" -name *.flac | wc -l)
+        if [[ $musicfilecount > "0" ]]; then
+            ((musicfoldercount++))
+            subfolderlist="$subfolderlist$subfoldername"$'\n'
+        fi
+    done
+    if [[ "$musicfoldercount" > "0" ]]; then
+        firstsubfoldername=$(echo "$subfolderlist" | head -1)
     fi
-  else
-    GOOD=true
-  fi
-  case $NEWFOLDER in
-    */) # do nothing
-      ;;
-    *) NEWFOLDER="$NEWFOLDER/";;
-  esac
 else
-  # this is cron job
-  if [ -n "$ARTIST" -a -n "$ALBUM" -a -n "$YEAR" ]
-    then
-      GOOD=true
-      /home/seeder1/bin/rtcontrol --from-view main \* -qo name hash=$HASH --custom=1="tc_processing"
-    else
-      echo "Bad or no tags"
-      /home/seeder1/bin/rtcontrol --from-view main \* -qo name hash=$HASH --custom=1="tc_failed"
-      SUBJECT="Transcode Failed - $FOLDERNAME"
-      MAIL="subject:$SUBJECT\nfrom:$FROM\nThe title says it all, but Google wants more, so here is some more text.  This folder could not be transcoded  -Your Friend, Sterns"
-      echo -e $MAIL | /usr/sbin/sendmail "$RECIPIENTS"
-      exit
-  fi
+    firstsubfoldername=''
 fi
-if $GOOD
-  then
-    if [ $MUSICFOLDERCOUNT -eq "0" ]
-      then
+firstflacfile=$(ls "${downloads}${foldername}${firstsubfoldername}" | grep -i -E '\.flac$' | head -1)
+secondflacfile=$(ls "${downloads}${foldername}${firstsubfoldername}" | grep -i -E '\.flac$' | head -2 | tail -1)
+artist1=$(metaflac --show-tag=ARTIST "${downloads}${foldername}${firstsubfoldername}$firstflacfile" | sed -n -e 's/^ARTIST=//pI' | sed -r 's/[:,?<>*|/]+/-/g')
+artist2=$(metaflac --show-tag=ARTIST "${downloads}${foldername}${firstsubfoldername}$secondflacfile" | sed -n -e 's/^ARTIST=//pI' | sed -r 's/[:,?<>*|/]+/-/g')
+if [[ "$artist1" == "$artist2" ]]; then
+    artist="$artist1"
+else
+    artist="Various Artists"
+fi
+album=$(metaflac --show-tag=ALBUM "${downloads}${foldername}${firstsubfoldername}${firstflacfile}" | sed -n -e 's/^ALBUM=//pI' | sed -r 's/[:,?<>*|/]+/-/g')
+year=$(metaflac --show-tag=DATE "${downloads}${foldername}${firstsubfoldername}${firstflacfile}" | sed -n -e 's/^DATE=//pI')
+newfolder="$artist - $album ($year) [V0]/"
+good=false
+if ! "$cron" ; then
+    echo "$newfolder"
+    read -p "Use this folder name? " -n 1 -r
+    if [[ ! "${reply}" =~ ^[yY]$ ]]; then
+        echo
+        read -p "Enter the desired folder name: "
+        newfolder="$reply"
+        echo "$newfolder"
+        read -p "Use this folder name? " -n 1 -r
+        if [[ "$reply" =~ ^[yY]$ ]]; then
+            good=true
+        fi
+    else
+        good=true
+    fi
+    case "$newfolder" in
+        */) # do nothing
+            ;;
+        *) newfolder="$newfolder/";;
+    esac
+else
+    # this is cron job
+    if [[ -n "$artist" && -n "$album" && -n "$year" ]]; then
+        good=true
+        /home/seeder1/bin/rtcontrol --from-view main \* -qo name hash=${hash} --custom=1="tc_processing"
+    else
+        echo "Bad or no tags"
+        /home/seeder1/bin/rtcontrol --from-view main \* -qo name hash=${hash} --custom=1="tc_failed"
+        subject="Transcode Failed - ${foldername}"
+        mail="subject:${subject}\nfrom:${from}\nThe title says it all, but Google wants more, so here is some more text.  This folder could not be transcoded  -Your Friend, Sterns"
+        echo -e "$mail" | /usr/sbin/sendmail "$recipients"
+        exit
+    fi
+fi
+if $"{good}"; then
+    if [[ "$musicfoldercount" == "0" ]]; then
         echo
         echo "Great!  Transcoding..."
-        mkdir "$DOWNLOADS$NEWFOLDER"
-        parallel -j8 avconv -i {} -qscale:a 0 {.}.mp3 ::: "$DOWNLOADS$FOLDERNAME"*.flac
-        mv "$DOWNLOADS$FOLDERNAME"*.{mp3,jpg,png,log,txt} "$DOWNLOADS$NEWFOLDER"
+        mkdir "${downloads}${newfolder}"
+        parallel -j8 avconv -i {} -qscale:a 0 {.}.mp3 ::: "${downloads}${foldername}"*.flac
+        mv "${downloads}${foldername}"*.{mp3,jpg,png,log,txt} "${downloads}${newfolder}"
         echo "Finished Transcoding."
-      else
-        for SUBFOLDERNAME in $SUBFOLDERLIST; do
-          mkdir -p "$DOWNLOADS$NEWFOLDER$SUBFOLDERNAME"
-          parallel -j8 avconv -i {} -qscale:a 0 {.}.mp3 ::: "$DOWNLOADS$FOLDERNAME$SUBFOLDERNAME"*.flac
-          mv "$DOWNLOADS$FOLDERNAME$SUBFOLDERNAME"*.{mp3,jpg,png,log,txt} "$DOWNLOADS$NEWFOLDER$SUBFOLDERNAME"
-          echo "Finished Transcoding."
+    else
+        for subfoldername in "$subfolderlist"; do
+            mkdir -p "${downloads}${newfolder}${subfoldername}"
+            parallel -j8 avconv -i {} -qscale:a 0 {.}.mp3 ::: "${downloads}${foldername}${subfoldername}"*.flac
+            mv "${downloads}${foldername}${subfoldername}"*.{mp3,jpg,png,log,txt} "${downloads}${newfolder}${subfoldername}"
+            echo "Finished Transcoding."
         done
     fi
 
     echo "Start Torrent Creation..."
-    /usr/local/bin/py3createtorrent.py -P "$DOWNLOADS$NEWFOLDER" what -o /home/seeder1/rtorrent/newtorrent/
-    NEWTORRENT="${NEWFOLDER%/}".torrent
-    cp "/home/seeder1/rtorrent/newtorrent/$NEWTORRENT" /home/seeder1/rtorrent/watch/
-    /home/seeder1/bin/rtcontrol --from-view main \* -qo name hash=$HASH --custom=1=""
-    SUBJECT="Transcode Completed - $FOLDERNAME"
-    MAIL="subject:$SUBJECT\nfrom:$FROM\nThe title says it all, but Google wants more, so here is some more text."
-    echo -e $MAIL | /usr/sbin/sendmail "$RECIPIENTS"
-  else
+    /usr/local/bin/py3createtorrent.py -P "${downloads}${newfolder}" what -o /home/seeder1/rtorrent/newtorrent/
+    newtorrent="${newfolder%/}".torrent
+    cp "/home/seeder1/rtorrent/newtorrent/${newtorrent}" /home/seeder1/rtorrent/watch/
+    /home/seeder1/bin/rtcontrol --from-view main \* -qo name hash=${hash} --custom=1=""
+    subject="Transcode Completed - ${foldername}"
+    mail="subject:${subject}\nfrom:${from}\nThe title says it all, but Google wants more, so here is some more text."
+    echo -e "${mail}" | /usr/sbin/sendmail "${recipients}"
+else
     echo
     echo "Aborted!"
-    echo 
+    echo
 fi
