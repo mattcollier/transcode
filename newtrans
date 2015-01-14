@@ -9,8 +9,7 @@ for torrent in "$TORRENTDIR"*.torrent; do
   # copy to watch folder
   mv "$torrent" "$WATCHFOLDER"
   # wait for rtorrent to register the torrent
-  CHECKTORRENT=$(rtcontrol -qo name hash=$torrent_hash | wc -l)
-  until [ "$CHECKTORRENT" -eq "1" ]; do
+  until [ "$(rtcontrol -qo name hash=$torrent_hash | wc -l)" -eq "1" ]; do
     echo "Waiting for torrent to be registered..."
     sleep 10
   done
