@@ -1,7 +1,7 @@
 #!/bin/bash
 IFS=$'\n'
 
-source $HOME/transcode.config
+source $HOME/transcode.conf
 
 cron=false
 
@@ -113,13 +113,13 @@ if ${good}; then
         echo
         echo "Great!  Transcoding..."
         mkdir "${downloads}${newfolder}"
-        parallel -j8 avconv -i {} -qscale:a 0 {.}.mp3 ::: "${downloads}${foldername}"*.flac
+        parallel -j${maxthreads} avconv -i {} -qscale:a 0 {.}.mp3 ::: "${downloads}${foldername}"*.flac
         mv "${downloads}${foldername}"*.{mp3,jpg,png,log,txt} "${downloads}${newfolder}"
         echo "Finished Transcoding."
     else
         for subfoldername in "$subfolderlist"; do
             mkdir -p "${downloads}${newfolder}${subfoldername}"
-            parallel -j8 avconv -i {} -qscale:a 0 {.}.mp3 ::: "${downloads}${foldername}${subfoldername}"*.flac
+            parallel -j${maxthreads} avconv -i {} -qscale:a 0 {.}.mp3 ::: "${downloads}${foldername}${subfoldername}"*.flac
             mv "${downloads}${foldername}${subfoldername}"*.{mp3,jpg,png,log,txt} "${downloads}${newfolder}${subfoldername}"
             echo "Finished Transcoding."
         done
