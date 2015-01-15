@@ -1,9 +1,7 @@
 #!/bin/bash
 IFS=$'\n'
 
-downloads="/home/seeder1/rtorrent/downloads/"
-from="seeder1@seed.com"
-recipients="seed@seed.com"
+source $HOME
 
 cron=false
 
