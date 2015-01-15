@@ -1,5 +1,5 @@
 #!/bin/bash
-
+shopt -s nullglob
 torrentdir="/home/seeder1/rtorrent/transtorrent/"
 watchfolder="/home/seeder1/rtorrent/watch/"
 
