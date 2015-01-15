@@ -3,17 +3,17 @@
 torrentdir="/home/seeder1/rtorrent/transtorrent/"
 watchfolder="/home/seeder1/rtorrent/watch/"
 
-for torrent in "$torrentdir"*.torrent; do
+for torrent in "${torrentdir}*.torrent"; do
   echo "Processing: $torrent"
-  torrent_hash=$(lstor "$torrent" -qo __hash__)
+  torrent_hash=`lstor "${torrent}" -qo __hash__`
   # copy to watch folder
-  mv "$torrent" "$watchfolder"
+  mv "${torrent}" "${watchfolder}"
   # wait for rtorrent to register the torrent
-  until [[ "$(rtcontrol -qo name hash="$torrent_hash" | wc -l)" -eq "1" ]]; do
+  until [ "$(rtcontrol -qo name hash=$torrent_hash | wc -l)" -eq "1" ]; do
     echo "Waiting for torrent to be registered..."
     sleep 10
   done
   echo "Labelling torrent..."
-  rtcontrol -qo name hash="$torrent_hash" --custom=1="tc"
+  rtcontrol -qo name hash=${torrent_hash} --custom=1="tc"
   echo "Done."
 done
