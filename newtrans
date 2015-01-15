@@ -1,19 +1,23 @@
 #!/bin/bash
-shopt -s nullglob
+IFS=$'\n'
 torrentdir="/home/seeder1/rtorrent/transtorrent/"
 watchfolder="/home/seeder1/rtorrent/watch/"
-
-for torrent in "${torrentdir}*.torrent"; do
-  echo "Processing: $torrent"
+torrentcount=0
+for torrent in $(find "${torrentdir}" -maxdepth 1 -name "*.torrent" 2>/dev/null); do
+  echo "Processing: ${torrent}"
+  ((torrentcount++))
   torrent_hash=`lstor "${torrent}" -qo __hash__`
   # copy to watch folder
   mv "${torrent}" "${watchfolder}"
   # wait for rtorrent to register the torrent
-  until [ "$(rtcontrol -qo name hash=$torrent_hash | wc -l)" -eq "1" ]; do
+  until [ "$(rtcontrol -qo name hash=${torrent_hash} | wc -l)" -eq "1" ]; do
     echo "Waiting for torrent to be registered..."
-    sleep 10
+    sleep 5
   done
   echo "Labelling torrent..."
   rtcontrol -qo name hash=${torrent_hash} --custom=1="tc"
   echo "Done."
 done
+if [ "${torrentcount}" -eq "0" ]; then
+  echo "No torrents to process."
+fi
