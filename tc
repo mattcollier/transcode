@@ -42,14 +42,14 @@ if [[ -z "${foldername}" || ! -d "${downloads}${foldername}" ]]; then
 fi
 
 musicfoldercount=0
-echo "here a"
 subfoldercount=$(find "${downloads}${foldername}"*/ -maxdepth 1 -type d -print | wc -l)
-echo "done a: subfoldercount: ${subfoldercount}"
 if [[ "${subfoldercount}" > "0" ]]; then
   subfolderlist=''
   allsubfolderlist=$(find "${downloads}${foldername}"*/ -maxdepth 1 -type d -printf "%f\n")
-  for subfoldername in "$allsubfolderlist"; do
-    musicfilecount=$(find "${downloads}${foldername}${subfoldername}" -name *.flac | wc -l)
+  # do not apply braces here
+  for subfoldername in $allsubfolderlist; do
+    musicfilecount=$(find "${downloads}${foldername}${subfoldername}" -name "*.flac" | wc -l)
+    echo "subfolder: $downloads$foldername$subfoldername - musicfilecount: ${musicfilecount}"
     if [[ "${musicfilecount}" > "0" ]]; then
       ((musicfoldercount++))
       subfolderlist="${subfolderlist}${subfoldername}"$'\n'
@@ -61,6 +61,7 @@ if [[ "${subfoldercount}" > "0" ]]; then
 else
   firstsubfoldername=''
 fi
+echo "First: ${firstsubfoldername}"
 firstflacfile=$(ls "${downloads}${foldername}${firstsubfoldername}" | grep -i -E '\.flac$' | head -1)
 secondflacfile=$(ls "${downloads}${foldername}${firstsubfoldername}" | grep -i -E '\.flac$' | head -2 | tail -1)
 artist1=$(metaflac --show-tag=ARTIST "${downloads}${foldername}${firstsubfoldername}$firstflacfile" | sed -n -e 's/^ARTIST=//pI' | sed -r 's/[:,?<>*|/]+/-/g')
@@ -98,10 +99,10 @@ else
     # this is cron job
     if [[ -n "$artist" && -n "$album" && -n "$year" ]]; then
         good=true
-        /home/seeder1/bin/rtcontrol --from-view main \* -qo name hash=${hash} --custom=1="tc_processing"
+        /usr/local/bin/rtcontrol --from-view main \* -qo name hash=${hash} --custom=1="tc_processing"
     else
         echo "Bad or no tags"
-        /home/seeder1/bin/rtcontrol --from-view main \* -qo name hash=${hash} --custom=1="tc_failed"
+        /usr/local/bin/rtcontrol --from-view main \* -qo name hash=${hash} --custom=1="tc_failed"
         subject="Transcode Failed - ${foldername}"
         mail="subject:${subject}\nfrom:${from}\nThe title says it all, but Google wants more, so here is some more text.  This folder could not be transcoded  -Your Friend, Sterns"
         echo -e "$mail" | /usr/sbin/sendmail "$recipients"
@@ -110,26 +111,26 @@ else
 fi
 if ${good}; then
     if [[ "${musicfoldercount}" == "0" ]]; then
-        echo
-        echo "Great!  Transcoding..."
-        mkdir "${downloads}${newfolder}"
-        parallel -j${maxthreads} avconv -i {} -qscale:a 0 {.}.mp3 ::: "${downloads}${foldername}"*.flac
-        mv "${downloads}${foldername}"*.{mp3,jpg,png,log,txt} "${downloads}${newfolder}"
-        echo "Finished Transcoding."
+      echo
+      echo "Great!  Transcoding..."
+      mkdir "${downloads}${newfolder}"
+      parallel -j${maxthreads} avconv -i {} -qscale:a 0 {.}.mp3 ::: "${downloads}${foldername}"*.flac
+      mv "${downloads}${foldername}"*.{mp3,jpg,png,log,txt} "${downloads}${newfolder}"
+      echo "Finished Transcoding."
     else
-        for subfoldername in "$subfolderlist"; do
-            mkdir -p "${downloads}${newfolder}${subfoldername}"
-            parallel -j${maxthreads} avconv -i {} -qscale:a 0 {.}.mp3 ::: "${downloads}${foldername}${subfoldername}"*.flac
-            mv "${downloads}${foldername}${subfoldername}"*.{mp3,jpg,png,log,txt} "${downloads}${newfolder}${subfoldername}"
-            echo "Finished Transcoding."
-        done
+      for subfoldername in $subfolderlist; do
+        mkdir -p "${downloads}${newfolder}${subfoldername}"
+        parallel -j${maxthreads} avconv -i {} -qscale:a 0 {.}.mp3 ::: "${downloads}${foldername}${subfoldername}"*.flac
+        mv "${downloads}${foldername}${subfoldername}"*.{mp3,jpg,png,log,txt} "${downloads}${newfolder}${subfoldername}"
+        echo "Finished Transcoding a Subfolder"
+      done
     fi
 
     echo "Start Torrent Creation..."
     /usr/local/bin/py3createtorrent.py -P "${downloads}${newfolder}" what -o /home/seeder1/rtorrent/newtorrent/
     newtorrent="${newfolder%/}".torrent
     cp "/home/seeder1/rtorrent/newtorrent/${newtorrent}" /home/seeder1/rtorrent/watch/
-    /home/seeder1/bin/rtcontrol --from-view main \* -qo name hash=${hash} --custom=1=""
+    /usr/local/bin/rtcontrol --from-view main \* -qo name hash=${hash} --custom=1=""
     subject="Transcode Completed - ${foldername}"
     mail="subject:${subject}\nfrom:${from}\nThe title says it all, but Google wants more, so here is some more text."
     echo -e "${mail}" | /usr/sbin/sendmail "${recipients}"
