@@ -42,7 +42,7 @@ if [[ -z "${foldername}" || ! -d "${downloads}${foldername}" ]]; then
 fi
 
 musicfoldercount=0
-subfoldercount=$(find "${downloads}${foldername}"*/ -maxdepth 1 -type d -print | wc -l)
+subfoldercount=$(find "${downloads}${foldername}"*/ -maxdepth 1 -type d -print 2>/dev/null | wc -l)
 if [[ "${subfoldercount}" > "0" ]]; then
   subfolderlist=''
   allsubfolderlist=$(find "${downloads}${foldername}"*/ -maxdepth 1 -type d -printf "%f\n")
@@ -61,22 +61,33 @@ if [[ "${subfoldercount}" > "0" ]]; then
 else
   firstsubfoldername=''
 fi
-echo "First: ${firstsubfoldername}"
-firstflacfile=$(ls "${downloads}${foldername}${firstsubfoldername}" | grep -i -E '\.flac$' | head -1)
-secondflacfile=$(ls "${downloads}${foldername}${firstsubfoldername}" | grep -i -E '\.flac$' | head -2 | tail -1)
-artist1=$(metaflac --show-tag=ARTIST "${downloads}${foldername}${firstsubfoldername}$firstflacfile" | sed -n -e 's/^ARTIST=//pI' | sed -r 's/[:,?<>*|/]+/-/g')
-artist2=$(metaflac --show-tag=ARTIST "${downloads}${foldername}${firstsubfoldername}$secondflacfile" | sed -n -e 's/^ARTIST=//pI' | sed -r 's/[:,?<>*|/]+/-/g')
-if [ "$artist1" == "$artist2" ]; then
-    artist="$artist1"
-else
+# Various Artists?
+counter=0
+various=false
+for flacfile in $(find "${downloads}${foldername}${firstsubfoldername}" -maxdepth 1 -type f -name "*.flac" 2>/dev/null); do
+  thisartist="$(metaflac --show-tag=ARTIST "${flacfile}" | sed -n -e 's/^ARTIST=//pI' | sed -r 's/[:,?<>*|/]+/-/g')"
+  if [[ "${counter}" == "0" ]]; then
+    firstflacfile="${flacfile}"
+    firstfileartist="${thisartist}"
+  else
+    if [[ "${firstfileartist}" != "${thisartist}" ]]; then
+      various=true
+      break
+    fi
+  fi
+  (( counter++ ))
+done
+if ${various}; then
     artist="Various Artists"
+else
+    artist="${firstfileartist}"
 fi
-album=$(metaflac --show-tag=ALBUM "${downloads}${foldername}${firstsubfoldername}${firstflacfile}" | sed -n -e 's/^ALBUM=//pI' | sed -r 's/[:,?<>*|/]+/-/g')
-year=$(metaflac --show-tag=DATE "${downloads}${foldername}${firstsubfoldername}${firstflacfile}" | sed -n -e 's/^DATE=//pI')
+album=$(metaflac --show-tag=ALBUM "${firstflacfile}" | sed -n -e 's/^ALBUM=//pI' | sed -r 's/[:,?<>*|/]+/-/g')
+year=$(metaflac --show-tag=DATE "${firstflacfile}" | sed -n -e 's/^DATE=//pI')
 newfolder="$artist - $album ($year) [V0]/"
 good=false
-if ! "$cron" ; then
-    echo "$newfolder"
+if ! "${cron}"; then
+    echo "${newfolder}"
     read -p "Use this folder name? " -n 1 -r
     if ! [[ "${REPLY}" =~ ^[yY]$ ]]; then
         echo
