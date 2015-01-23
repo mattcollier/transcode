@@ -95,20 +95,20 @@ if ! "${cron}"; then
         newfolder="$REPLY"
         echo "$newfolder"
         read -p "Use this folder name? " -n 1 -r
-        if [[ "$REPLY" =~ ^[yY]$ ]]; then
+        if [[ "${REPLY}" =~ ^[yY]$ ]]; then
           good=true
         fi
     else
         good=true
     fi
-    case "$newfolder" in
+    case "${newfolder}" in
         */) # do nothing
             ;;
         *) newfolder="$newfolder/";;
     esac
 else
     # this is cron job
-    if [[ -n "$artist" && -n "$album" && -n "$year" ]]; then
+    if [[ -n "${artist}" && -n "${album}" && -n "${year}" ]]; then
         good=true
         /usr/local/bin/rtcontrol --from-view main \* -qo name hash=${hash} --custom=1="tc_processing"
     else
