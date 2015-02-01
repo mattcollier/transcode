@@ -1,6 +1,6 @@
 #!/bin/bash
 IFS=$'\n'
-BROKEN=`rtcontrol --from-view main \* -qo hash is_complete=no`
+BROKEN=$(rtcontrol -qo hash is_active=no)
 for hash in $BROKEN; do
   echo $hash
   rm -v /home/seeder1/rtorrent/.session/"$hash".torrent.libtorrent_resume
