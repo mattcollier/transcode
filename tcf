@@ -1,6 +1,7 @@
 #!/bin/bash
 mkdir resampled # make a subdirectory to put our files in
-parallel -j8 sox -S "{}" -r 44100 -b 16 "resampled/{}" ::: *.flac
-cp "*.{mp3,jpg,png,log,txt}" "resampled/"
+#parallel -j8 sox -S "{}" -r 44100 -b 16 "resampled/{}" ::: *.flac
+parallel -j2 avconv -i "{}" -codec:v copy -ar 44100 -sample_fmt s16 "resampled/{}" ::: *.flac
+cp "*.{jpg,png,log,txt}" "resampled/"
 echo "Finished Transcoding."
 

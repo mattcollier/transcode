@@ -138,12 +138,13 @@ if ${good}; then
     fi
 
     echo "Start Torrent Creation..."
-    /usr/local/bin/py3createtorrent.py -P "${downloads}${newfolder}" what -o /home/seeder1/rtorrent/newtorrent/
+    "${binfolder}"/py3createtorrent.py -P "${downloads}${newfolder}" what -o /home/seeder1/rtorrent/newtorrent/
     newtorrent="${newfolder%/}".torrent
-    cp "/home/seeder1/rtorrent/newtorrent/${newtorrent}" /home/seeder1/rtorrent/watch/
-    /usr/local/bin/rtcontrol --from-view main \* -qo name hash=${hash} --custom=1=""
+    cp "/home/seeder1/rtorrent/newtorrent/${newtorrent}" "${watchfolder}"
+    "${binfolder}"/rtcontrol --from-view main \* -qo name hash=${hash} --custom=1=""
     subject="Transcode Completed - ${foldername}"
-    mail="subject:${subject}\nfrom:${from}\nThe title says it all, but Google wants more, so here is some more text."
+    mail="subject:${subject}\nfrom:${from}\nThe title says it all, but Google wants more, so here is some more text.\n \
+      https://what.cd/torrents.php?groupname=${hash}"
     echo -e "${mail}" | /usr/sbin/sendmail "${recipients}"
 else
     echo
