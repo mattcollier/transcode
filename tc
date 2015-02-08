@@ -50,17 +50,17 @@ if [[ "${subfoldercount}" > "0" ]]; then
   subfolderlist=''
   allsubfolderlist=$(find "${downloads}${foldername}"*/ -maxdepth 1 -type d -printf "%f\n")
   # add '.' for parent folder
-  allsubfolderlist="${allsubfolderlist}"$'\n'$'\n'
+  allsubfolderlist="${allsubfolderlist}"$'\n'
   echo -e "${allsubfolderlist}x"
   while read -r subfoldername; do
-    musicfilecount=$(find "${downloads}${foldername}${subfoldername}" -name "*.flac" | wc -l)
+    musicfilecount=$(find "${downloads}${foldername}${subfoldername}" -maxdepth 1 -name "*.flac" | wc -l)
     echo "subfolder: $downloads$foldername$subfoldername - musicfilecount: ${musicfilecount}"
     if [[ "${musicfilecount}" > "0" ]]; then
       echo "this: ${subfoldername}"
       musicfolders[musicfoldercount]="${subfoldername}"
       ((musicfoldercount++))
-    else
-      # assume that folder contains artwork
+    elif [ -n "${subfoldername}" ]; then
+      # if the name is not blank (parent) then we assume it's art
       artfolders[artfoldercount]="${subfoldername}"
       ((artfoldercount++))
     fi
@@ -92,7 +92,6 @@ fi
 album=$(metaflac --show-tag=ALBUM "${firstflacfile}" | sed -n -e 's/^ALBUM=//pI' | sed -r 's/[:,?<>*|/]+/-/g')
 year=$(metaflac --show-tag=DATE "${firstflacfile}" | sed -n -e 's/^DATE=//pI')
 newfolder="$artist - $album ($year) [V0]/"
-good=false
 if ! "${cron}"; then
     echo "${newfolder}"
     read -p "Use this folder name? " -n 1 -r
@@ -128,21 +127,18 @@ else
         exit
     fi
 fi
-echo "musicfolders: ${musicfolders[*]}x"
-echo "artfolders: ${artfolders[*]}x"
 if ${good}; then
-    echo "************* I'm here #### "
     while read -r subfoldername; do
       mkdir -p "${downloads}${newfolder}${subfoldername}"
       parallel -j${maxthreads} avconv -i {} -codec:v copy -qscale:a 0 {.}.mp3 ::: "${downloads}${foldername}${subfoldername}"*.flac
       mv "${downloads}${foldername}${subfoldername}"*.mp3 "${downloads}${newfolder}${subfoldername}"
       cp "${downloads}${foldername}${subfoldername}"*.{jpg,png,log,txt} "${downloads}${newfolder}${subfoldername}"
       echo "Finished Transcoding Folder."
-    done <<< ${musicfolders[*]}
+    done <<< "${musicfolders[*]}"
     if [[ "${artfoldercount}" > "0" ]]; then
       while read -r artfolder; do
         cp -r "${downloads}${foldername}${artfolder}" "${downloads}${newfolder}"
-      done <<< ${artfolders[*]}
+      done <<< "${artfolders[*]}"
     fi
     echo "Start Torrent Creation..."
     "${binfolder}"/py3createtorrent.py -P "${downloads}${newfolder}" what -o /home/seeder1/rtorrent/newtorrent/
